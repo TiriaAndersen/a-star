@@ -1,6 +1,7 @@
 #include <queue>
 #include <limits>
 #include <cmath>
+#include <iostream>
 
 // represents a single pixel
 class Node {
@@ -113,4 +114,26 @@ extern "C" bool astar(
   delete[] nbrs;
 
   return solution_found;
+}
+
+int main()
+{
+  float weights[16] = {1, 0.5, 0.5};
+  for (int i=0; i <=15; i++){
+    if (i%4 == 0) {std::cout << std::endl;}
+    std::cout <<  weights[i] << " ";
+  }
+  int h = 4;
+  int w = 4;
+  int start = 12;
+  int goal = 3;
+  bool diag_ok = true;
+  int paths[w*h] = {};
+  bool solution_found = astar(weights, h, w, start, goal, diag_ok, paths);
+  std::cout << "Solution found? "  << solution_found;
+
+  for (int i=0; i <=15; i++){
+    std::cout <<  paths[i] << " ";
+  }
+
 }
