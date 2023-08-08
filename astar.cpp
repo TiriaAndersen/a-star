@@ -34,6 +34,16 @@ float l1_norm(int i0, int j0, int i1, int j1) {
   return std::abs(i0 - i1) + std::abs(j0 - j1);
 }
 
+// Print formatted grid
+void print_grid(float* grid, int h, int w){
+  std::cout << std::endl << "costs:" << std::endl;
+    for (int i=0; i <=(h*w-1); i++){
+      if (i%w == 0) {std::cout << std::endl;}
+      std::cout <<  grid[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
 // weights:        flattened h x w grid of costs
 // h, w:           height and width of grid
 // start, goal:    index of start/goal in flattened grid
@@ -53,6 +63,8 @@ extern "C" bool astar(
   for (int i = 0; i < h * w; ++i)
     costs[i] = INF;
   costs[start] = 0.;
+
+  float* priorities = new float[h * w];
 
   std::priority_queue<Node> nodes_to_visit;
   nodes_to_visit.push(start_node);
@@ -103,11 +115,28 @@ extern "C" bool astar(
           float priority = new_cost + heuristic_cost;
           nodes_to_visit.push(Node(nbrs[i], priority));
 
+          priorities[nbrs[i]] = priority;
           costs[nbrs[i]] = new_cost;
           paths[nbrs[i]] = cur.idx;
         }
       }
     }
+
+    // print cost grid
+    std::cout << std::endl << "costs:" << std::endl;
+    for (int i=0; i <=15; i++){
+      if (i%4 == 0) {std::cout << std::endl;}
+      std::cout <<  costs[i] << " ";
+    }
+    std::cout << std::endl;
+
+    // print backpointer grid
+    std::cout << std::endl << "backpointers:" << std::endl;
+    for (int i=0; i <=15; i++){
+      if (i%4 == 0) {std::cout << std::endl;}
+      std::cout <<  paths[i] << " ";
+    }
+    std::cout << std::endl;
   }
 
   delete[] costs;
@@ -118,22 +147,39 @@ extern "C" bool astar(
 
 int main()
 {
-  float weights[16] = {1, 0.5, 0.5};
+  // print grid index
+  for (int i=0; i <=15; i++){
+    if (i%4 == 0) {std::cout << std::endl;}
+    std::cout << i << " ";
+  }
+  std::cout << std::endl;
+
+  // Print weights.
+  float weights[16] = {1, 0.5, 0.1, 1, 0.5, 0.5, 1, 1, 0.2, 1, 1, 1, 1, 1, 1, 1 };
   for (int i=0; i <=15; i++){
     if (i%4 == 0) {std::cout << std::endl;}
     std::cout <<  weights[i] << " ";
   }
+  std::cout << std::endl;
+
+  // Parameters.
   int h = 4;
   int w = 4;
   int start = 12;
   int goal = 3;
   bool diag_ok = true;
   int paths[w*h] = {};
-  bool solution_found = astar(weights, h, w, start, goal, diag_ok, paths);
-  std::cout << "Solution found? "  << solution_found;
 
-  for (int i=0; i <=15; i++){
-    std::cout <<  paths[i] << " ";
+  // Run A*
+  bool solution_found = astar(weights, h, w, start, goal, diag_ok, paths);
+  std::cout << "Solution found? "  << solution_found << std::endl;
+
+  // print solution path (remember, index starts at 0 in the top-left corner)
+  int path_idx = goal;
+  std::cout << goal << " ";
+  while (path_idx != start){
+    std::cout << paths[path_idx]  << " ";
+    path_idx = paths[path_idx];
   }
 
 }
