@@ -2,20 +2,29 @@
 #include <limits>
 #include <cmath>
 #include <iostream>
+using namespace std;
 
 // represents a single pixel
 class Node {
   public:
     int idx;     // index in the flattened grid
     float cost;  // cost of traversing this pixel
+    float prob;  // probability of finding another POI 
 
-    Node(int i, float c) : idx(i),cost(c) {}
+    Node(int i, float c, float p) : idx(i),cost(c),prob(p) {}
 };
 
 // the top of the priority queue is the greatest element by default,
 // but we want the smallest, so flip the sign
 bool operator<(const Node &n1, const Node &n2) {
-  return n1.cost > n2.cost;
+  if(n1.cost==n2.cost)
+  {
+    return n1.prob < n2.prob;
+  }
+  else
+  {
+    return n1.cost > n2.cost;
+  }
 }
 
 bool operator==(const Node &n1, const Node &n2) {
@@ -26,38 +35,39 @@ bool operator==(const Node &n1, const Node &n2) {
 // http://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html#S7
 // L_\inf norm (diagonal distance)
 float linf_norm(int i0, int j0, int i1, int j1) {
-  return std::max(std::abs(i0 - i1), std::abs(j0 - j1));
+  return max(abs(i0 - i1), abs(j0 - j1));
 }
 
 // L_1 norm (manhattan distance)
 float l1_norm(int i0, int j0, int i1, int j1) {
-  return std::abs(i0 - i1) + std::abs(j0 - j1);
+  return abs(i0 - i1) + abs(j0 - j1);
 }
 
 // Print formatted grid
 void print_grid(float* grid, int h, int w){
-  std::cout << std::endl << "costs:" << std::endl;
-    for (int i=0; i <=(h*w-1); i++){
-      if (i%w == 0) {std::cout << std::endl;}
-      std::cout <<  grid[i] << " ";
-    }
-    std::cout << std::endl;
+  cout << endl;
+  for (int i=0; i <=(h*w-1); i++){
+    if (i%w == 0) {cout << endl;}
+    cout <<  grid[i] << " ";
+  }
+  cout << endl;
 }
 
 // weights:        flattened h x w grid of costs
 // h, w:           height and width of grid
+// d:              unit distance between grid cells
 // start, goal:    index of start/goal in flattened grid
 // diag_ok:        if true, allows diagonal moves (8-conn.)
 // paths (output): for each node, stores previous node in path
 extern "C" bool astar(
-      const float* weights, const int h, const int w,
+      const float* weights, const int h, const int w, const int d,
       const int start, const int goal, bool diag_ok,
       int* paths) {
 
-  const float INF = std::numeric_limits<float>::infinity();
+  const float INF = numeric_limits<float>::infinity();
 
-  Node start_node(start, 0.);
-  Node goal_node(goal, 0.);
+  Node start_node(start, 0., 0);
+  Node goal_node(goal, 0., 0);
 
   float* costs = new float[h * w];
   for (int i = 0; i < h * w; ++i)
@@ -66,7 +76,7 @@ extern "C" bool astar(
 
   float* priorities = new float[h * w];
 
-  std::priority_queue<Node> nodes_to_visit;
+  priority_queue<Node> nodes_to_visit;
   nodes_to_visit.push(start_node);
 
   int* nbrs = new int[8];
@@ -75,6 +85,8 @@ extern "C" bool astar(
   while (!nodes_to_visit.empty()) {
     // .top() doesn't actually remove the node
     Node cur = nodes_to_visit.top();
+    
+    cout << endl << "Popped: " << cur.idx << " cost: " << cur.cost << endl;
 
     if (cur == goal_node) {
       solution_found = true;
@@ -99,7 +111,7 @@ extern "C" bool astar(
     for (int i = 0; i < 8; ++i) {
       if (nbrs[i] >= 0) {
         // the sum of the cost so far and the cost of this move
-        float new_cost = costs[cur.idx] + weights[nbrs[i]];
+        float new_cost = costs[cur.idx] + (d - weights[nbrs[i]]);
         if (new_cost < costs[nbrs[i]]) {
           // estimate the cost to the goal based on legal moves
           if (diag_ok) {
@@ -112,8 +124,9 @@ extern "C" bool astar(
           }
 
           // paths with lower expected cost are explored first
-          float priority = new_cost + heuristic_cost;
-          nodes_to_visit.push(Node(nbrs[i], priority));
+          // float priority = new_cost + heuristic_cost;
+          float priority = new_cost;
+          nodes_to_visit.push(Node(nbrs[i], priority, weights[nbrs[i]]));
 
           priorities[nbrs[i]] = priority;
           costs[nbrs[i]] = new_cost;
@@ -122,21 +135,22 @@ extern "C" bool astar(
       }
     }
 
-    // print cost grid
-    std::cout << std::endl << "costs:" << std::endl;
-    for (int i=0; i <=15; i++){
-      if (i%4 == 0) {std::cout << std::endl;}
-      std::cout <<  costs[i] << " ";
-    }
-    std::cout << std::endl;
-
     // print backpointer grid
-    std::cout << std::endl << "backpointers:" << std::endl;
+    cout << endl << "backpointers:" << endl;
     for (int i=0; i <=15; i++){
-      if (i%4 == 0) {std::cout << std::endl;}
-      std::cout <<  paths[i] << " ";
+      if (i%4 == 0) {cout << endl;}
+      cout <<  paths[i] << " ";
     }
-    std::cout << std::endl;
+    cout << endl;
+
+    // print cost grid
+    cout << endl << "costs:";
+    print_grid(costs, h, w);
+
+    // print priority grid
+    // cout << endl << "priorities:";
+    // print_grid(priorities, h, w);
+    
   }
 
   delete[] costs;
@@ -147,39 +161,43 @@ extern "C" bool astar(
 
 int main()
 {
-  // print grid index
-  for (int i=0; i <=15; i++){
-    if (i%4 == 0) {std::cout << std::endl;}
-    std::cout << i << " ";
-  }
-  std::cout << std::endl;
-
-  // Print weights.
-  float weights[16] = {1, 0.5, 0.1, 1, 0.5, 0.5, 1, 1, 0.2, 1, 1, 1, 1, 1, 1, 1 };
-  for (int i=0; i <=15; i++){
-    if (i%4 == 0) {std::cout << std::endl;}
-    std::cout <<  weights[i] << " ";
-  }
-  std::cout << std::endl;
-
-  // Parameters.
+    // Parameters.
   int h = 4;
   int w = 4;
+  int d = 1;
   int start = 12;
   int goal = 3;
   bool diag_ok = true;
-  int paths[w*h] = {};
+  int paths[w*h];
+
+  // print grid index
+  for (int i=0; i <=15; i++){
+    if (i%4 == 0) {cout << endl;}
+    cout << i << " ";
+  }
+  cout << endl;
+
+  // Print weights.
+  float weights[16] = {1, 0.5, 0.5, 1, 0.5, 0.5, 0, 0, 0.2};
+  print_grid(weights, h, w);
+  // for (int i=0; i <=15; i++){
+  //   if (i%4 == 0) {cout << endl;}
+  //   cout <<  weights[i] << " ";
+  // }
 
   // Run A*
-  bool solution_found = astar(weights, h, w, start, goal, diag_ok, paths);
-  std::cout << "Solution found? "  << solution_found << std::endl;
+  bool solution_found = astar(weights, h, w, d, start, goal, diag_ok, paths);
+  cout << "Solution found? "  << solution_found << endl;
 
   // print solution path (remember, index starts at 0 in the top-left corner)
+  float total_cost = 0;
   int path_idx = goal;
-  std::cout << goal << " ";
+  cout << goal << " ";
   while (path_idx != start){
-    std::cout << paths[path_idx]  << " ";
+    cout << paths[path_idx]  << " ";
     path_idx = paths[path_idx];
+    total_cost += d - weights[path_idx];
   }
+  cout << endl << "total cost: " << total_cost << endl;
 
 }
